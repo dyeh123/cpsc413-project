@@ -1,0 +1,1 @@
+cmd_/home/alvin/Desktop/rootkit_faffing/read_mod/modules.order := {   echo /home/alvin/Desktop/rootkit_faffing/read_mod/rootkit.ko; :; } | awk '!x[$$0]++' - > /home/alvin/Desktop/rootkit_faffing/read_mod/modules.order

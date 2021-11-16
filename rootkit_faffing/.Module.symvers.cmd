@@ -1,0 +1,1 @@
+cmd_/home/alvin/Desktop/rootkit_faffing/Module.symvers := sed 's/ko$$/o/' /home/alvin/Desktop/rootkit_faffing/modules.order | scripts/mod/modpost -m -a   -o /home/alvin/Desktop/rootkit_faffing/Module.symvers -e -i Module.symvers   -T -

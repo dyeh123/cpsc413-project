@@ -1,0 +1,1 @@
+cmd_/home/alvin/Desktop/rootkit_faffing/giving_root/rootkit.mod := { echo  /home/alvin/Desktop/rootkit_faffing/giving_root/rootkit.o;  echo; } > /home/alvin/Desktop/rootkit_faffing/giving_root/rootkit.mod

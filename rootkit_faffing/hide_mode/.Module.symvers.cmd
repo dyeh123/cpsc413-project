@@ -1,0 +1,1 @@
+cmd_/home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/Module.symvers := sed 's/ko$$/o/' /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/modules.order | scripts/mod/modpost -m -a   -o /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/Module.symvers -e -i Module.symvers   -T -

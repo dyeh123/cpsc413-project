@@ -1,0 +1,1 @@
+cmd_/home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.ko := ld -r -m elf_x86_64  --build-id=sha1  -T scripts/module.lds -o /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.ko /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.o /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.mod.o;  true

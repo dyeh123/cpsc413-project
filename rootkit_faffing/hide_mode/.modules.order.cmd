@@ -1,0 +1,1 @@
+cmd_/home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/modules.order := {   echo /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.ko; :; } | awk '!x[$$0]++' - > /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/modules.order

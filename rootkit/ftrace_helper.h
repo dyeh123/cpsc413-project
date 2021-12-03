@@ -8,6 +8,7 @@
 #include <linux/linkage.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/string.h>
 
 #if defined(CONFIG_X86_64) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
 #define PTREGS_SYSCALL_STUBS 1
@@ -33,6 +34,8 @@ static struct kprobe kp = {
 #define SYSCALL_NAME(name) (name)
 #endif
 
+#define WRONG_TCP4 "__x64_tcp4_seq_show"
+#define CORRECT_TCP4 "tcp4_seq_show"
 #define HOOK(_name, _hook, _orig)   \
 {                   \
     .name = SYSCALL_NAME(_name),        \
@@ -80,6 +83,12 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
     kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
     unregister_kprobe(&kp);
 #endif
+    /* Because of the SYSCALL_NAME macro, the preprocessor gets the name of the 
+     * tcp4_seq_show function wrong, casuing error on x64. Need to set the right 
+     * name. */
+    if (strncmp(hook->name, WRONG_TCP4, strlen(WRONG_TCP4)) == 0) {
+        hook->name = CORRECT_TCP4;
+    }
     hook->address = kallsyms_lookup_name(hook->name);
 
     if (!hook->address)

@@ -1,6 +1,8 @@
 // Based on https://www.geeksforgeeks.org/tcp-server-client-implementation-in-c/
 
 #include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdlib.h>

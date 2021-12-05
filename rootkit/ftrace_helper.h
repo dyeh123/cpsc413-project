@@ -28,14 +28,18 @@ static struct kprobe kp = {
 #endif
 
 /* x64 has to be special and require a different naming convention */
+#define WRONG_WRITE "__x64___x64_sys_write"
+#define WRONG_OPENAT "__x64___x64_sys_openat"
+#define WRONG_TCP4 "__x64_tcp4_seq_show"
 #ifdef PTREGS_SYSCALL_STUBS
 #define SYSCALL_NAME(name) ("__x64_" name)
+#define CORRECT_OPENAT "__x64_sys_openat"
+#define CORRECT_TCP4 "tcp4_seq_show"
+#define CORRECT_WRITE "__x64_sys_write"
 #else
 #define SYSCALL_NAME(name) (name)
 #endif
 
-#define WRONG_TCP4 "__x64_tcp4_seq_show"
-#define CORRECT_TCP4 "tcp4_seq_show"
 #define HOOK(_name, _hook, _orig)   \
 {                   \
     .name = SYSCALL_NAME(_name),        \
@@ -84,10 +88,14 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
     unregister_kprobe(&kp);
 #endif
     /* Because of the SYSCALL_NAME macro, the preprocessor gets the name of the 
-     * tcp4_seq_show function wrong, casuing error on x64. Need to set the right 
-     * name. */
+     * tcp4_seq_show and other functions wrong, casuing error on x64. Need to set 
+     * the right name. */
     if (strncmp(hook->name, WRONG_TCP4, strlen(WRONG_TCP4)) == 0) {
         hook->name = CORRECT_TCP4;
+    } else if (strncmp(hook->name, WRONG_OPENAT, strlen(WRONG_OPENAT)) == 0) {
+        hook->name = CORRECT_OPENAT;
+    } else if (strncmp(hook->name, WRONG_WRITE, strlen(WRONG_WRITE)) == 0) {
+        hook->name = CORRECT_WRITE;
     }
     hook->address = kallsyms_lookup_name(hook->name);
 

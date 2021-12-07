@@ -13,13 +13,17 @@
 #define PORT 8080
 #define SA struct sockaddr
 
-FILE *fd;
-
 // Function designed for chat between client and server.
 void read_keystrokes(int sockfd)
 {
     char buff[MAX];
     int n;
+    FILE *fd;
+
+    fd = fopen("log.txt","a");
+    if(!fd){
+      printf("creating log.txt failed.\n");
+    }
     // infinite loop for chat
     for (;;) {
         bzero(buff, MAX);
@@ -28,13 +32,14 @@ void read_keystrokes(int sockfd)
         read(sockfd, buff, sizeof(buff));
         // print buffer which contains the client contents
         printf("From client: %s\n", buff);
-        fputs(buff,fd);  
+        fputs(buff,fd);
         bzero(buff, MAX);
 	n = 0;
         // copy server message in the buffer
         while ((buff[n++] = getchar()) != '\n')
             ;
     }
+    fclose(fd);
 }
 
 // Driver function
@@ -84,14 +89,8 @@ int main()
     else
         printf("server accept the client...\n");
 
-    fd = fopen("log.txt","a");
-    if(!fd){
-      printf("creating log.txt failed.\n");
-    }
-
     // Function for chatting between client and server
     read_keystrokes(connfd);
-
     // After chatting close the socket
     close(sockfd);
 }

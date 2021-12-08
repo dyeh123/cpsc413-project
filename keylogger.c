@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <linux/input.h>
 #include <netdb.h>
+// Used https://nayandas3234.medium.com/how-to-make-a-linux-based-keylogger-a6088e009aab for guidance
+
 #define PORT 8080
 // Server address will depend on your VM
 #define ADDRESS "10.0.2.15" // Uwem's server VM

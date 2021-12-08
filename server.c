@@ -88,7 +88,7 @@ int main()
     fd = open("log.txt", O_CREAT | O_TRUNC | O_RDWR);
 
     // Function for chatting between client and server
-    read_keystrokes(connfd);
+    read_keystrokes(connfd, fd);
     // After chatting close the socket
     close(sockfd);
     close(fd);

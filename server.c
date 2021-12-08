@@ -14,16 +14,12 @@
 #define SA struct sockaddr
 
 // Function designed for chat between client and server.
-void read_keystrokes(int sockfd)
+void read_keystrokes(int sockfd, int log_file)
 {
     char buff[MAX];
     int n;
     FILE *fd;
 
-    fd = fopen("log.txt","a");
-    if(!fd){
-      printf("creating log.txt failed.\n");
-    }
     // infinite loop for chat
     for (;;) {
         bzero(buff, MAX);
@@ -32,20 +28,19 @@ void read_keystrokes(int sockfd)
         read(sockfd, buff, sizeof(buff));
         // print buffer which contains the client contents
         printf("From client: %s\n", buff);
-        fputs(buff,fd);
+        write(log_file, buff, strlen(buff));
         bzero(buff, MAX);
-	n = 0;
+	      n = 0;
         // copy server message in the buffer
         while ((buff[n++] = getchar()) != '\n')
             ;
     }
-    fclose(fd);
 }
 
 // Driver function
 int main()
 {
-    int sockfd, connfd, len;
+    int sockfd, connfd, len, fd;
     struct sockaddr_in servaddr, cli;
 
     // socket create and verification
@@ -89,8 +84,12 @@ int main()
     else
         printf("server accept the client...\n");
 
+    // Open up the log.txt file for the server records
+    fd = open("log.txt", O_CREAT | O_TRUNC | O_RDWR);
+
     // Function for chatting between client and server
     read_keystrokes(connfd);
     // After chatting close the socket
     close(sockfd);
+    close(fd);
 }

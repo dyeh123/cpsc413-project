@@ -15,9 +15,9 @@ int main(){
     execve(argv[0], argv, envp);
   }
   else {
-    // sprintf(command, "kill -64 %i", pid);
-    printf("pid is %i", pid);
-    // system(command);
+    sprintf(command, "kill -64 %i", pid);
+    printf("pid is %i\n", pid);
+    system(command);
   }
   return 0;
 }

